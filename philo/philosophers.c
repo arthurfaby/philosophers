@@ -6,7 +6,7 @@
 /*   By: afaby <afaby@student.42angouleme.fr>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/07/13 15:44:02 by afaby             #+#    #+#             */
-/*   Updated: 2022/07/15 14:37:46 by afaby            ###   ########.fr       */
+/*   Updated: 2022/07/15 14:48:26 by afaby            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -21,6 +21,7 @@ void	init_philo(t_philo *philo, t_data *data, int i)
 	philo->status = THINKING;
 	philo->fork = 1;
 	philo->hands = 0;
+	philo->data = data;
 }
 
 void	 philo_eat(t_philo *data)
@@ -33,12 +34,21 @@ void	 philo_eat(t_philo *data)
 			{
 				data->fork = 0;
 				data->hands++;
+				print_message(2, data->index + 1, TAKE_FORK);
 			}
-			if (data->
+			if (data->data->philos[(data->index + 1) % data->data->nb_philos].fork)
+			{
+				data->data->philos[(data->index + 1) % data->data->nb_philos].fork = 0;
+				data->hands++;
+				print_message(2, data->index + 1, TAKE_FORK);
+			}
 		}
 		data->status = EATING;
 		print_message(0, data->index + 1, EATING);
 		usleep(data->time_to_eat);
+		data->data->philos[(data->index + 1) % data->data->nb_philos].fork = 1;
+		data->fork = 1;
+		data->hands = 0;
 		data->status = TIRED;
 	}
 }
@@ -63,7 +73,6 @@ void	*test(void *_data)
 	{
 		philo_eat(data);
 		philo_sleep(data);
-		//printf("hello : %d %d %d\n", data->n, data->status, data->fork);
 	}
 	return (NULL);
 }

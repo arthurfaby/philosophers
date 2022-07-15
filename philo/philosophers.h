@@ -6,7 +6,7 @@
 /*   By: afaby <afaby@student.42angouleme.fr>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2022/07/13 15:27:27 by afaby             #+#    #+#             */
-/*   Updated: 2022/07/15 14:35:11 by afaby            ###   ########.fr       */
+/*   Updated: 2022/07/15 14:47:19 by afaby            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -52,7 +52,7 @@ struct s_data
 	long long	time_to_eat;
 	long long	time_to_sleep;
 	t_philo		*philos;
-}
+};
 
 // ft_atoi.c
 int		ft_atoi(const char *nptr);
