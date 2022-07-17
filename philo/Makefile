@@ -11,13 +11,11 @@ INC		=	-I $(INC_DIR)
 CC		=	gcc
 
 # Flags to use
-CFLAGS	=	-Wall -Wextra -Werror -pthread
+CFLAGS	=	-Wall -Wextra -Werror -pthread -g
 
 # All the sources
 SRCS	=	philosophers.c \
-			init.c \
-			message.c \
-			ft_atoi.c
+			message.c
 
 OBJS	=	$(SRCS:.c=.o)
 

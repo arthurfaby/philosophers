@@ -5,106 +5,205 @@
 /*                                                    +:+ +:+         +:+     */
 /*   By: afaby <afaby@student.42angouleme.fr>       +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2022/07/13 15:44:02 by afaby             #+#    #+#             */
-/*   Updated: 2022/07/15 14:48:26 by afaby            ###   ########.fr       */
+/*   Created: 2022/07/16 09:24:41 by afaby             #+#    #+#             */
+/*   Updated: 2022/07/17 13:40:57 by afaby            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philosophers.h"
 
-void	init_philo(t_philo *philo, t_data *data, int i)
+int	ft_atoi(const char *nptr)
 {
-	philo->index = i;
-	philo->time_to_die = data->time_to_die;
-	philo->time_to_eat = data->time_to_eat;
-	philo->time_to_sleep = data->time_to_sleep;
-	philo->status = THINKING;
-	philo->fork = 1;
-	philo->hands = 0;
-	philo->data = data;
-}
+	long long int	res;
+	int				neg;
 
-void	 philo_eat(t_philo *data)
-{
-	if (data->status == THINKING)
+	res = 0;
+	neg = 1;
+	while (((*nptr >= 9 && *nptr <= 13) || *nptr == ' ') && *nptr)
+		nptr++;
+	if (*nptr == '+' || *nptr == '-')
 	{
-		while (data->hands != 2)
-		{
-			if (data->fork == 1)
-			{
-				data->fork = 0;
-				data->hands++;
-				print_message(2, data->index + 1, TAKE_FORK);
-			}
-			if (data->data->philos[(data->index + 1) % data->data->nb_philos].fork)
-			{
-				data->data->philos[(data->index + 1) % data->data->nb_philos].fork = 0;
-				data->hands++;
-				print_message(2, data->index + 1, TAKE_FORK);
-			}
-		}
-		data->status = EATING;
-		print_message(0, data->index + 1, EATING);
-		usleep(data->time_to_eat);
-		data->data->philos[(data->index + 1) % data->data->nb_philos].fork = 1;
-		data->fork = 1;
-		data->hands = 0;
-		data->status = TIRED;
+		if (*nptr == '-')
+			neg = -1;
+		nptr++;
 	}
-}
-
-void	philo_sleep(t_philo *data)
-{
-	if (data->status == TIRED)
+	while (*nptr >= '0' && *nptr <= '9')
 	{
-		data->status = SLEEPING;
-		print_message(1, data->index + 1, SLEEPING);
-		usleep(data->time_to_sleep);
-		data->status = THINKING;
+		res = res * 10 + (*nptr - '0');
+		nptr++;
 	}
+	return ((int)neg * res);
 }
 
-void	*test(void *_data)
-{
-	t_philo	*data;
-
-	data = (t_philo *) _data;
-	while (1)
-	{
-		philo_eat(data);
-		philo_sleep(data);
-	}
-	return (NULL);
-}
-
-void	launch_philos(t_data *data)
+void	init_philos(t_data *data)
 {
 	int	i;
 
 	i = 0;
 	while (i < data->nb_philos)
 	{
-		init_philo(&data->philos[i], data ,i);
-		pthread_create(&data->philos[i].id, NULL, test, &data->philos[i]);
+		data->philos[i] = malloc(sizeof(t_philo));
+		if (!data->philos[i])
+			return ;
+		data->philos[i]->index = i;
+		data->philos[i]->data = data;
+		pthread_mutex_init(&data->philos[i]->fork, NULL);
+		data->philos[i]->last_meal = data->start;
+		i++;
+	}
+}
+
+int	init_data(t_data *data, char *argv[])
+{
+	struct timeval	date;
+
+	data->nb_philos = ft_atoi(argv[1]);
+	data->time_to_die = ft_atoi(argv[2]) * 1000;
+	data->time_to_eat = ft_atoi(argv[3]) * 1000;
+	data->time_to_sleep = ft_atoi(argv[4]) * 1000;
+	data->finished = 0;
+	gettimeofday(&date, NULL);
+	data->start = date.tv_sec * 1000 + date.tv_usec / 1000;
+	if (data->nb_philos <= 0 || data->time_to_die <= 0
+		|| data->time_to_eat <= 0 || data->time_to_sleep <= 0)
+		return (0);
+	pthread_mutex_init(&data->message, NULL);
+	data->philos = malloc(sizeof(t_philo *) * data->nb_philos);
+	if (!data->philos)
+		return (0);
+	init_philos(data);
+	return (1);
+}
+
+void	take_forks(t_philo *philo)
+{
+	int	neighbour_index;
+	int	self_index;
+
+	self_index = philo->index;
+	neighbour_index = (self_index + 1) % philo->data->nb_philos;
+	pthread_mutex_lock(&philo->data->philos[self_index]->fork);
+	if (philo->data->finished)
+		return ;
+	print_message(philo->data, philo->index + 1, TAKE_FORK);
+	pthread_mutex_lock(&philo->data->philos[neighbour_index]->fork);
+	if (philo->data->finished)
+		return ;
+	print_message(philo->data, philo->index + 1, TAKE_FORK);
+}
+
+void	put_forks(t_philo *philo)
+{
+	int	neighbour_index;
+	int	self_index;
+
+	self_index = philo->index;
+	neighbour_index = (self_index + 1) % philo->data->nb_philos;
+	pthread_mutex_unlock(&philo->data->philos[neighbour_index]->fork);
+	pthread_mutex_unlock(&philo->data->philos[self_index]->fork);
+}
+
+void	eat(t_philo *philo)
+{
+	struct timeval	now;
+
+	gettimeofday(&now, NULL);
+	if (philo->data->finished)
+		return ;
+	print_message(philo->data, philo->index + 1, EATING);
+	philo->last_meal = now.tv_sec * 1000 + now.tv_usec / 1000;
+	usleep(philo->data->time_to_eat);
+}
+
+void	philo_sleep(t_philo *philo)
+{	
+	if (philo->data->finished)
+		return ;
+	print_message(philo->data, philo->index + 1, SLEEPING);
+	usleep(philo->data->time_to_sleep);
+	if (philo->data->finished)
+		return ;
+	print_message(philo->data, philo->index + 1, THINKING);
+}
+
+void	*start_routine(void *_philo)
+{
+	t_philo	*philo;
+
+	philo = (t_philo *)_philo;
+	while (!philo->data->finished)
+	{
+		take_forks(philo);
+		eat(philo);
+		put_forks(philo);
+		philo_sleep(philo);
+	}
+	return (NULL);
+}
+
+void	*fchecker(void *_data)
+{
+	t_data			*data;
+	int				i;
+	struct timeval	now;
+	long long		m_now;
+
+	data = (t_data *)_data;
+	while (1)
+	{
+		i = 0;
+		while (i < data->nb_philos)
+		{
+			gettimeofday(&now, NULL);
+			m_now = now.tv_sec * 1000 + now.tv_usec / 1000;
+			if (m_now - data->philos[i]->last_meal > (data->time_to_die / 1000))
+			{
+				print_message(data, data->philos[i]->index + 1, DIED);
+				data->finished = 1;
+				return (NULL);
+			}
+			i++;
+		}		
+	}
+	return (NULL);
+}
+
+void	launch_philos(t_data *data, pthread_t *checker)
+{
+	int			i;
+
+	i = 0;
+	while (i < data->nb_philos)
+	{
+		pthread_create(&data->philos[i]->id, NULL, start_routine, data->philos[i]);
+		usleep(500);
+		i++;
+	}
+	pthread_create(checker, NULL, fchecker, data);
+	pthread_join(*checker, NULL);
+}
+
+void	wait_philos(t_data *data)
+{
+	int	i;
+
+	i = 0;
+	while (i < data->nb_philos)
+	{
+		pthread_join(data->philos[i]->id, NULL);
 		i++;
 	}
 }
 
 int	main(int argc, char *argv[])
 {
-	t_data	data;
-	int		i;
-
-	if (argc < 5 || argc > 6)
-		return (printf("\033[0;31m%s\n", USAGE_MSG), 4);
-	if (init_data(&data, argv) == 0)
-		return (printf("\033[0;31m%s\n", VALUE_ERR), 5);
-	data.philos = malloc(sizeof(t_philo) * data.nb_philos);
-	if (!data.philos)
-		return (printf("\033[0;31m%s\n", MALLOC_ERROR), 6);
-	launch_philos(&data);
-	i = 0;
-	while (i < data.nb_philos)
-		pthread_join(data.philos[i++].id, NULL);
-	free(data.philos);
+	t_data		data;
+	pthread_t	checker;
+	
+	if (!init_data(&data, argv))
+		return (1);
+	launch_philos(&data, &checker);
+	//wait_philos(&data);
+	return (0);
+	(void)argc;	
 }
