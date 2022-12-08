@@ -15,7 +15,13 @@ CFLAGS	=	-Wall -Wextra -Werror -pthread -g
 
 # All the sources
 SRCS	=	philosophers.c \
-			message.c
+			ft_atoi.c \
+			init.c \
+			actions.c \
+			routines.c \
+			message.c \
+			free.c \
+			time.c
 
 OBJS	=	$(SRCS:.c=.o)
 
